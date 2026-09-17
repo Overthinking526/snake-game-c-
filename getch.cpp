@@ -2,30 +2,36 @@
 
 #include <termios.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 char _getch()
 {
     termios old_settings;
     termios new_settings;
 
-    // Получаем текущие настройки терминала
     tcgetattr(STDIN_FILENO, &old_settings);
 
-    // Делаем копию
     new_settings = old_settings;
-
-    // Выключаем ожидание Enter и отображение символа
     new_settings.c_lflag &= ~(ICANON | ECHO);
 
-    // Применяем новые настройки
     tcsetattr(STDIN_FILENO, TCSANOW, &new_settings);
 
-    // Читаем один символ
-    char key;
-    read(STDIN_FILENO, &key, 1);
+    int old_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
 
-    // Возвращаем старые настройки
+    fcntl(STDIN_FILENO, F_SETFL, old_flags | O_NONBLOCK);
+
+    char key;
+
+    int result = read(STDIN_FILENO, &key, 1);
+
+    fcntl(STDIN_FILENO, F_SETFL, old_flags);
+
     tcsetattr(STDIN_FILENO, TCSANOW, &old_settings);
 
-    return key;
+    if(result == 1)
+    {
+        return key;
+    }
+
+    return '\0';
 }
